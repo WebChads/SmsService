@@ -101,7 +101,7 @@ func StartProducingSmsCode(config *service.ServiceConfig) {
 	}()
 
 	// Get generated sms code.
-	smsCode, err := smsgen.GenerateSmsCode()
+	smsCode, err := smsgen.GenerateMockSmsCode()
 	if err != nil {
 		logger.Error("generate sms code", slogerr.Err(err))
 		return
