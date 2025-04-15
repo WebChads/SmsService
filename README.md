@@ -4,18 +4,16 @@
 
 Kafka producer
 ```
-                               "smstoauth" topic
-	+--------------+                                      +-------------+
-    | Auth Service | <- Consume   [sms code]   <- Produce | Sms Service |
-	+--------------+                                      +-------------+
++--------------+                                      +-------------+
+| Auth Service | <- Consume   [sms code]   <- Produce | Sms Service |
++--------------+                                      +-------------+
 ```
 
 Kafka consumer
 ```
-                              "authtosms" topic
-	+--------------+                                      +-------------+
-	| Auth Service | Produce -> [phone number] Consume -> | Sms Service |
-	+--------------+                                      +-------------+
++--------------+                                      +-------------+
+| Auth Service | Produce -> [phone number] Consume -> | Sms Service |
++--------------+                                      +-------------+
 ```
 
 ### Running docker images
