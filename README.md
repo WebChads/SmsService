@@ -26,15 +26,15 @@ go run ./cmd/app/main.go
 
 Kafka producer
 ```
-                               "smstoauth" topic
+                                  "smstoauth" topic
 	+--------------+                                      +-------------+
-    | Auth Service | <- Consume   [sms code]   <- Produce | Sms Service |
+        | Auth Service | <- Consume   [sms code]   <- Produce | Sms Service |
 	+--------------+                                      +-------------+
 ```
 
 Kafka consumer
 ```
-                              "authtosms" topic
+                                  "authtosms" topic
 	+--------------+                                      +-------------+
 	| Auth Service | Produce -> [phone number] Consume -> | Sms Service |
 	+--------------+                                      +-------------+
