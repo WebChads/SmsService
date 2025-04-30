@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/IBM/sarama"
-	"github.com/WebChads/SmsService/internal/lib/slogerr"
-	"github.com/WebChads/SmsService/internal/lib/smsgen"
-	"github.com/WebChads/SmsService/internal/service"
+	"github.com/WebChads/SmsService/internal/config"
+	"github.com/WebChads/SmsService/internal/pkg/slogerr"
+	"github.com/WebChads/SmsService/internal/pkg/smsgen"
 )
 
 type producedData struct {
@@ -62,7 +62,7 @@ func produce(producerSync sarama.SyncProducer, msg producedData) {
 		for {
 			bytes, err := json.Marshal(&msg)
 			if err != nil {
-				logger.Error("cannot marshal to json", slogerr.Err(err))
+				logger.Error("cannot marshal to json", slogerr.Error(err))
 			}
 
 			msg := prepareMessage(bytes)
@@ -70,7 +70,7 @@ func produce(producerSync sarama.SyncProducer, msg producedData) {
 			// Send json structure to the topic.
 			partition, offset, err := producerSync.SendMessage(msg)
 			if err != nil {
-				logger.Error("message sync error", slogerr.Err(err))
+				logger.Error("message sync error", slogerr.Error(err))
 				logger.Error("message sync error",
 					slog.Int("partition", int(partition)),
 					slog.Int64("offset", offset))
@@ -82,7 +82,7 @@ func produce(producerSync sarama.SyncProducer, msg producedData) {
 	wg.Wait()
 }
 
-func StartProducingSmsCode(config *service.ServiceConfig) {
+func StartProducingSmsCode(config *config.ServerConfig) {
 	const funcPath = "server.kafka.producer.StartProducingSmsCode"
 
 	logger := slog.With(
@@ -91,11 +91,11 @@ func StartProducingSmsCode(config *service.ServiceConfig) {
 
 	producerSync, err := newSyncProducer(config.KafkaAddress)
 	if err != nil {
-		logger.Error("newSyncProducer", slogerr.Err(err))
+		logger.Error("newSyncProducer", slogerr.Error(err))
 	}
 	defer func() {
 		if err := producerSync.Close(); err != nil {
-			logger.Error("producer close", slogerr.Err(err))
+			logger.Error("producer close", slogerr.Error(err))
 			return
 		}
 	}()
@@ -103,7 +103,7 @@ func StartProducingSmsCode(config *service.ServiceConfig) {
 	// Get generated sms code.
 	smsCode, err := smsgen.GenerateMockSmsCode()
 	if err != nil {
-		logger.Error("generate sms code", slogerr.Err(err))
+		logger.Error("generate sms code", slogerr.Error(err))
 		return
 	}
 

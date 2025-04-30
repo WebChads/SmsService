@@ -2,18 +2,15 @@ package main
 
 import (
 	"context"
-	"log/slog"
 
-	"github.com/WebChads/SmsService/internal/lib/slogerr"
-	"github.com/WebChads/SmsService/internal/service"
-	"github.com/WebChads/SmsService/internal/service/kafka/consumer"
-	"github.com/WebChads/SmsService/internal/service/kafka/producer"
+	"github.com/WebChads/SmsService/internal/config"
+	"github.com/WebChads/SmsService/internal/delivery/kafka/consumer"
+	"github.com/WebChads/SmsService/internal/delivery/kafka/producer"
 )
 
 func main() {
-	config, err := service.NewServiceConfig()
-	if err != nil {
-		slog.Error("", slogerr.Err(err))
+	config := config.NewServiceConfig()
+	if config == nil {
 		return
 	}
 

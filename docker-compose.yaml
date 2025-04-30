@@ -25,6 +25,8 @@ services:
   kafka-1:
     image: wurstmeister/kafka
     container_name: kafka-smsservice
+    depends_on:
+      - zookeeper
 
     ports:
       - "9095:9094"

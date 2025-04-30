@@ -1,6 +1,14 @@
 # SmsService
 
-### Run the application
+### Cloning the repo
+
+Clone this repo:
+```
+git clone git@github.com:WebChads/SmsService.git
+cd ./SmsService
+```
+
+### Run docker containers
 
 Run zookeeper docker image:
 ```
@@ -17,7 +25,8 @@ Set application config path:
 export CONFIG_PATH=./configs/appsettings.json
 ```
 
-Run the application:
+### Run the application
+
 ```
 go run ./cmd/app/main.go
 ```

@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/IBM/sarama"
-	"github.com/WebChads/SmsService/internal/lib/slogerr"
-	"github.com/WebChads/SmsService/internal/service"
+	"github.com/WebChads/SmsService/internal/config"
+	"github.com/WebChads/SmsService/internal/pkg/slogerr"
 )
 
 // TODO: use Sarama's metrics and monitoring system (e.g. Prometheus).
@@ -44,10 +44,10 @@ func (c *ConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 	claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
 		slog.Info("claimed message info",
-				slog.String("topic", message.Topic),
-				slog.Int("partition", int(message.Partition)),
-				slog.Int64("offset", message.Offset),
-				slog.String("value", string(message.Value)))
+			slog.String("topic", message.Topic),
+			slog.Int("partition", int(message.Partition)),
+			slog.Int64("offset", message.Offset),
+			slog.String("value", string(message.Value)))
 
 		session.MarkMessage(message, "message was marked as handled")
 	}
@@ -82,10 +82,10 @@ func subscribe(ctx context.Context, topics []string, consumerGroup sarama.Consum
 	wg.Wait()
 }
 
-var	topicNames = []string{"authtosms"}
+var topicNames = []string{"authtosms"}
 
 // Create, config and start new consumer group.
-func StartConsumingPhoneNumber(ctx context.Context, config *service.ServiceConfig) {
+func StartConsumingPhoneNumber(ctx context.Context, config *config.ServerConfig) {
 	const funcPath = "service.kafka.consumer.StartConsumingPhoneNumber"
 
 	logger := slog.With(
@@ -100,7 +100,7 @@ func StartConsumingPhoneNumber(ctx context.Context, config *service.ServiceConfi
 	// Consumer group id is "sms".
 	consumerGroup, err := sarama.NewConsumerGroup(config.Brokers, "sms", consumerConfig)
 	if err != nil {
-		logger.Error("create new consumer group error", slogerr.Err(err))
+		logger.Error("create new consumer group error", slogerr.Error(err))
 		return
 	}
 
