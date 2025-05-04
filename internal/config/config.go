@@ -11,11 +11,14 @@ import (
 )
 
 type ServerConfig struct {
-	KafkaAddress string   `yaml:"kafka_address"`
-	Brokers      []string `yaml:"brokers"`
+	LogLevel      string   `yaml:"log_level"`
+	KafkaAddress  string   `yaml:"kafka_address"`
+	Brokers       []string `yaml:"brokers"`
+	ConsumerTopic string   `yaml:"consumer_topic"`
+	ProducerTopic string   `yaml:"producer_topic"`
 }
 
-func NewServiceConfig() *ServerConfig {
+func NewServerConfig() *ServerConfig {
 
 	// Get the CONFIG_PATH environment variable.
 	configPath := os.Getenv("CONFIG_PATH")

@@ -1,19 +1,21 @@
 package consumer
 
 import (
-	"context"
+	"errors"
 	"log/slog"
-	"sync"
 
 	"github.com/IBM/sarama"
 	"github.com/WebChads/SmsService/internal/config"
-	"github.com/WebChads/SmsService/internal/pkg/slogerr"
+	shared "github.com/WebChads/SmsService/internal/delivery/kafka"
 )
 
 // TODO: use Sarama's metrics and monitoring system (e.g. Prometheus).
 
 // This structure implements "ConsumerGroupHandler" interface.
-type ConsumerHandler struct{}
+type ConsumerHandler struct {
+	mp     *shared.MessageProcessor
+	logger *slog.Logger
+}
 
 // When a new consumer is added to a consumer group or an existing consumer leaves
 // (due to a crash or being shutdown), Kafka rebalances the consumers in the group.
@@ -23,17 +25,16 @@ type ConsumerHandler struct{}
 // In Sarama, handling rebalancing is done by implementing the Setup and Cleanup
 // functions of the ConsumerGroupHandler interface.
 
-func (c *ConsumerHandler) Setup(s sarama.ConsumerGroupSession) error {
-	slog.Info("Consumer joins cluster and starts a blocking" +
-		"ConsumerGroupSession with ConsumerGroupHandler")
-	slog.Info("Consumer group is being rebalanced")
+func (c *ConsumerHandler) Setup(session sarama.ConsumerGroupSession) error {
+	c.logger.Info("Consumer joins cluster and starts a blocking session",
+		slog.String("ConsumerHandler", "Setup"))
 
 	return nil
 }
 
-func (c *ConsumerHandler) Cleanup(s sarama.ConsumerGroupSession) error {
-	slog.Info("ConsumeClaim was finished and cleanup procedure was started")
-	slog.Info("Rebalancing will happen soon, current session will end")
+func (c *ConsumerHandler) Cleanup(session sarama.ConsumerGroupSession) error {
+	c.logger.Info("Stop claiming, run cleanup procedure",
+		slog.String("ConsumerHandler", "Cleanup"))
 
 	return nil
 }
@@ -42,68 +43,54 @@ func (c *ConsumerHandler) Cleanup(s sarama.ConsumerGroupSession) error {
 // The messages channel will be closed when a new rebalance cycle is due.
 func (c *ConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 	claim sarama.ConsumerGroupClaim) error {
-	for message := range claim.Messages() {
-		slog.Info("claimed message info",
-			slog.String("topic", message.Topic),
-			slog.Int("partition", int(message.Partition)),
-			slog.Int64("offset", message.Offset),
-			slog.String("value", string(message.Value)))
+	c.logger.Info("Start claiming messages",
+		slog.String("ConsumerHandler", "ConsumeClaim"))
 
-		session.MarkMessage(message, "message was marked as handled")
+	for message := range claim.Messages() {
+		select {
+		case c.mp.ProcessChan <- message:
+			c.logger.Info("claimed message info",
+				slog.String("topic", message.Topic),
+				slog.Int("partition", int(message.Partition)),
+				slog.Int64("offset", message.Offset),
+				slog.String("value", string(message.Value)))
+
+			session.MarkMessage(message, "message was marked as handled")
+		case <-c.mp.Ctx.Done():
+			c.logger.Info("consumer context done:61")
+			return nil
+		}
 	}
 
 	return nil
 }
 
 // Start consuming in the separate goroutine.
-func subscribe(ctx context.Context, topics []string, consumerGroup sarama.ConsumerGroup) {
-	consumerHandler := ConsumerHandler{}
+func StartConsumingPhoneNumber(mp *shared.MessageProcessor, config *config.ServerConfig, l *slog.Logger) {
+	handler := &ConsumerHandler{
+		mp:     mp,
+		logger: l,
+	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+	mp.Wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer mp.Wg.Done()
 
-		// consumerGroup.Consume method should be called inside an infinite loop.
-		// when a server-side rebalance happens, the consumer session will need to be
+		// Consume method should be called inside an infinite loop.
+		// When a server-side rebalance happens, the consumer session will need to be
 		// recreated to get the new claims.
 		for {
-			if err := consumerGroup.Consume(ctx, topics, &consumerHandler); err != nil {
+			select {
+			case <-mp.Ctx.Done():
+				l.Info("consumer context done:85")
 				return
-			}
-
-			if ctx.Err() != nil {
-				return
+			default:
+				err := mp.Consumer.Consume(mp.Ctx, []string{config.ConsumerTopic}, handler)
+				if err != nil {
+					mp.ErrorChan <- errors.New("consumer error: " + err.Error())
+					return
+				}
 			}
 		}
 	}()
-
-	// Wait until all goroutines have finished executing.
-	wg.Wait()
-}
-
-var topicNames = []string{"authtosms"}
-
-// Create, config and start new consumer group.
-func StartConsumingPhoneNumber(ctx context.Context, config *config.ServerConfig) {
-	const funcPath = "service.kafka.consumer.StartConsumingPhoneNumber"
-
-	logger := slog.With(
-		slog.String("path", funcPath),
-	)
-
-	consumerConfig := sarama.NewConfig()
-
-	consumerConfig.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
-	consumerConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
-
-	// Consumer group id is "sms".
-	consumerGroup, err := sarama.NewConsumerGroup(config.Brokers, "sms", consumerConfig)
-	if err != nil {
-		logger.Error("create new consumer group error", slogerr.Error(err))
-		return
-	}
-
-	// Subscribe consumer group on smsfromauth topic.
-	subscribe(ctx, topicNames, consumerGroup)
 }

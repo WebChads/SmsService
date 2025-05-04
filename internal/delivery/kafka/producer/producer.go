@@ -3,118 +3,84 @@ package producer
 import (
 	"encoding/json"
 	"log/slog"
-	v2 "math/rand/v2"
-	"sync"
 
 	"github.com/IBM/sarama"
 	"github.com/WebChads/SmsService/internal/config"
+	shared "github.com/WebChads/SmsService/internal/delivery/kafka"
 	"github.com/WebChads/SmsService/internal/pkg/slogerr"
 	"github.com/WebChads/SmsService/internal/pkg/smsgen"
 )
 
 type producedData struct {
-	UUID    int    `json:"uuid"`
-	SmsCode string `json:"sms_code"`
+	PhoneNumber string `json:"phone_number"`
+	SmsCode     string `json:"sms_code"`
 }
 
-func newSyncProducer(conn string) (sarama.SyncProducer, error) {
-	config := sarama.NewConfig()
+// "msg" contains phone number claimed by consumer
+func prepareMessage(msg []byte, topicName string) *sarama.ProducerMessage {
+	// Get generated sms code.
+	smsCode, err := smsgen.GenerateMockSmsCode()
+	if err != nil {
+		slog.Error("generate sms code", slogerr.Error(err))
+		return nil
+	}
 
-	// Partitioner which chooses a random partition each time.
-	config.Producer.Partitioner = sarama.NewRandomPartitioner
+	// TODO: implement SMS Gateway API.
+	// At this moment we need to send message with the
+	// sms code to the user phone using SMS providers.
 
-	// Wait acks from all replicants of kafka.
-	config.Producer.RequiredAcks = sarama.WaitForAll
+	message := producedData{
+		PhoneNumber: string(msg),
+		SmsCode:     smsCode,
+	}
 
-	// For implementation reasons, these fields have to be set to true.
-	config.Producer.Return.Successes = true
-	config.Producer.Return.Errors = true
+	bytes, err := json.Marshal(&message)
+	if err != nil {
+		slog.Error("cannot marshal to json", slogerr.Error(err))
+		return nil
+	}
 
-	producerSync, err := sarama.NewSyncProducer([]string{conn}, config)
-
-	return producerSync, err
-}
-
-const topicName = "smstoauth"
-
-func prepareMessage(msg []byte) *sarama.ProducerMessage {
 	res := &sarama.ProducerMessage{
 		Topic:     topicName,
 		Partition: -1,
-		Value:     sarama.StringEncoder(msg),
+		Value:     sarama.StringEncoder(bytes),
 	}
 
 	return res
 }
 
-func produce(producerSync sarama.SyncProducer, msg producedData) {
-	const funcPath = "server.kafka.producer.produce"
-
-	logger := slog.With(
-		slog.String("path", funcPath),
-	)
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+func StartProducingSmsCode(mp *shared.MessageProcessor, config *config.ServerConfig, logger *slog.Logger) {
+	// Start processor
+	mp.Wg.Add(1)
 	go func() {
-		defer wg.Done()
-
+		defer mp.Wg.Done()
 		for {
-			bytes, err := json.Marshal(&msg)
-			if err != nil {
-				logger.Error("cannot marshal to json", slogerr.Error(err))
-			}
+			select {
+			case msg := <-mp.ProcessChan:
+				producerMsg := prepareMessage(msg.Value, config.ProducerTopic)
 
-			msg := prepareMessage(bytes)
+				val, _ := sarama.StringEncoder.Encode(producerMsg.Value.(sarama.StringEncoder))
 
-			// Send json structure to the topic.
-			partition, offset, err := producerSync.SendMessage(msg)
-			if err != nil {
-				logger.Error("message sync error", slogerr.Error(err))
-				logger.Error("message sync error",
-					slog.Int("partition", int(partition)),
-					slog.Int64("offset", offset))
+				logger.Info("produced message info",
+					slog.String("topic", msg.Topic),
+					slog.Int("partition", int(msg.Partition)),
+					slog.Int64("offset", msg.Offset),
+					slog.String("value", string(val)))
+
+				select {
+				case mp.Producer.Input() <- producerMsg:
+					// Message sent to producer
+				case <-mp.Ctx.Done():
+					logger.Info("producer context done:141")
+					return
+				}
+
+			case <-mp.Producer.Errors():
+				logger.Info("producer error")
+				return
+			case <-mp.Ctx.Done():
+				return
 			}
 		}
 	}()
-
-	// Wait until all goroutines have finished executing.
-	wg.Wait()
-}
-
-func StartProducingSmsCode(config *config.ServerConfig) {
-	const funcPath = "server.kafka.producer.StartProducingSmsCode"
-
-	logger := slog.With(
-		slog.String("path", funcPath),
-	)
-
-	producerSync, err := newSyncProducer(config.KafkaAddress)
-	if err != nil {
-		logger.Error("newSyncProducer", slogerr.Error(err))
-	}
-	defer func() {
-		if err := producerSync.Close(); err != nil {
-			logger.Error("producer close", slogerr.Error(err))
-			return
-		}
-	}()
-
-	// Get generated sms code.
-	smsCode, err := smsgen.GenerateMockSmsCode()
-	if err != nil {
-		logger.Error("generate sms code", slogerr.Error(err))
-		return
-	}
-
-	// TODO: implement SMS Gateway API.
-	// At this moment we need to send message with the
-	// sms code to the user phone number.
-
-	message := producedData{
-		UUID:    v2.IntN(100),
-		SmsCode: smsCode,
-	}
-
-	produce(producerSync, message)
 }

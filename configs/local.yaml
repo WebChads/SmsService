@@ -1,2 +1,5 @@
+log_level: "local"
 kafka_address: "localhost:9095"
 brokers: ["localhost:9095"]
+consumer_topic: "authtosms"
+producer_topic: "smstoauth"
