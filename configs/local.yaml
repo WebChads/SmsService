@@ -1,2 +1,0 @@
-kafka_address: "localhost:9095"
-brokers: ["localhost:9095"]
