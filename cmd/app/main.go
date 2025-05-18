@@ -17,9 +17,16 @@ func main() {
 		panic(errorMessage)
 	}
 
-	kafkaConsumer, err := services.InitKafkaConsumer(config.Brokers)
+	kafkaProducer, err := services.NewKafkaProducer(config.KafkaAddress)
 	if err != nil {
-		errorMessage := fmt.Sprintf("failed to init kafka consumer: %w", err.Error())
+		errorMessage := fmt.Sprintf("failed to init kafka producer: %s", err.Error())
+		slog.Error(errorMessage)
+		panic(errorMessage)
+	}
+
+	kafkaConsumer, err := services.InitKafkaConsumer(config.Brokers, kafkaProducer)
+	if err != nil {
+		errorMessage := fmt.Sprintf("failed to init kafka consumer: %s", err.Error())
 		slog.Error(errorMessage)
 		panic(errorMessage)
 	}

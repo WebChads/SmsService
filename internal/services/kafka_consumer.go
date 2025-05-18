@@ -17,6 +17,7 @@ type KafkaConsumer interface {
 
 type confluentKafkaConsumer struct {
 	kafkaConsumer *kafka.Consumer
+	kafkaProducer KafkaProducer
 	isStarted     bool
 }
 
@@ -65,13 +66,13 @@ func (kafkaConsumer *confluentKafkaConsumer) Start() {
 			slog.Error(fmt.Errorf("user sent invalid phone number: %s", phoneNumberDto.PhoneNumber).Error())
 		}
 
-		// TODO: send sms code in producer
+		kafkaConsumer.kafkaProducer.SendSmsCode(phoneNumberDto.PhoneNumber)
 	}
 }
 
 var singletoneKafkaConsumer = &confluentKafkaConsumer{}
 
-func InitKafkaConsumer(brokers []string) (KafkaConsumer, error) {
+func InitKafkaConsumer(brokers []string, kafkaProducer KafkaProducer) (KafkaConsumer, error) {
 	if singletoneKafkaConsumer.kafkaConsumer == nil {
 		consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 			"bootstrap.servers": strings.Join(brokers, ","),
@@ -83,6 +84,7 @@ func InitKafkaConsumer(brokers []string) (KafkaConsumer, error) {
 		}
 
 		singletoneKafkaConsumer.kafkaConsumer = consumer
+		singletoneKafkaConsumer.kafkaProducer = kafkaProducer
 
 		compiledPhoneNumberRegex, _ = regexp.Compile(`^(8|\+7)(\s|\(|-)?(\d{3})(\s|\)|-)?(\d{3})(\s|-)?(\d{2})(\s|-)?(\d{2})$`)
 	}
