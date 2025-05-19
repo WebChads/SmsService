@@ -7,4 +7,4 @@ spec:
   selector:
     app: sms-service
   ports:
-    - port: 15691
+    - port: {{ .Values.service.port }}
