@@ -1,28 +1,41 @@
 package main
 
 import (
-	"context"
+	"fmt"
+	"log/slog"
+	"sync"
 
 	"github.com/WebChads/SmsService/internal/config"
-	"github.com/WebChads/SmsService/internal/delivery/kafka/consumer"
-	"github.com/WebChads/SmsService/internal/delivery/kafka/producer"
+	"github.com/WebChads/SmsService/internal/services"
 )
 
 func main() {
-	config := config.NewServiceConfig()
-	if config == nil {
-		return
+	config, err := config.NewServiceConfig()
+	if err != nil {
+		errorMessage := fmt.Sprintf("failed to get config: %w", err.Error())
+		slog.Error(errorMessage)
+		panic(errorMessage)
 	}
 
-	ctx := context.Background()
+	kafkaProducer, err := services.NewKafkaProducer(config.KafkaAddress)
+	if err != nil {
+		errorMessage := fmt.Sprintf("failed to init kafka producer: %s", err.Error())
+		slog.Error(errorMessage)
+		panic(errorMessage)
+	}
 
-	// create kafka consumer group and start consuming.
-	// consuming runs in another goroutine, so we use
-	// wait group.
-	consumer.StartConsumingPhoneNumber(ctx, config)
+	kafkaConsumer, err := services.InitKafkaConsumer(config.Brokers, kafkaProducer)
+	if err != nil {
+		errorMessage := fmt.Sprintf("failed to init kafka consumer: %s", err.Error())
+		slog.Error(errorMessage)
+		panic(errorMessage)
+	}
 
-	// create kafka sync producer and start producing.
-	// producing runs in another goroutine, so we use
-	// wait group.
-	producer.StartProducingSmsCode(config)
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go kafkaConsumer.Start()
+
+	defer wg.Done()
+	wg.Wait()
 }
