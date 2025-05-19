@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-service
+  namespace: sms-service
+spec:
+  selector:
+    app: sms-service
+  ports:
+    - port: {{ .Values.service.port }}
