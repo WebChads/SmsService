@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 
 	"github.com/WebChads/SmsService/internal/config"
@@ -10,9 +11,16 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
+
+	slog.Info("Resolving dependency injection")
+
 	config, err := config.NewServiceConfig()
 	if err != nil {
-		errorMessage := fmt.Sprintf("failed to get config: %w", err.Error())
+		errorMessage := fmt.Sprintf("failed to get config: %s", err.Error())
 		slog.Error(errorMessage)
 		panic(errorMessage)
 	}
@@ -37,5 +45,7 @@ func main() {
 	go kafkaConsumer.Start()
 
 	defer wg.Done()
+
+	slog.Info("Started SmsService")
 	wg.Wait()
 }

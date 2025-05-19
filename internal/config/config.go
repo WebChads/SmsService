@@ -72,7 +72,14 @@ func getConfigPath() string {
 }
 
 func findModuleRoot(dir string) (string, error) {
+	counter := 0
+
 	for {
+		// to stop infinite loop if happens
+		if counter > 10 {
+			break
+		}
+
 		if dir == "" || dir == "/" {
 			return "", errors.New("invalid working directory name")
 		}
@@ -82,7 +89,10 @@ func findModuleRoot(dir string) (string, error) {
 		}
 
 		dir = filepath.Dir(dir)
+		counter++
 	}
+
+	return "", errors.New("unable to find module root")
 }
 
 func validateConfig(cfg *ServerConfig) error {
