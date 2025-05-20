@@ -9,7 +9,7 @@ env:
   # Настройки Yandex Container Registry
   YC_REGISTRY: cr.yandex
   YC_REPOSITORY: crpo7i7jtgfkus1pmda2
-  IMAGE_NAME: cr.yandex/crpo7i7jtgfkus1pmda2/sms-service:${{ github.sha }}
+  IMAGE_NAME: cr.yandex/crpo7i7jtgfkus1pmda2/sms-service:latest
 
   # Настройки Kubernetes
   KUBE_NAMESPACE: default
@@ -37,7 +37,7 @@ jobs:
 
       - name: Login to Yandex Container Registry
         run: |
-          echo ${{ secrets.YC_OAUTH_TOKEN_ENCODED }}| base64 -d |docker login \
+          echo "${{ secrets.YC_OAUTH_TOKEN_ENCODED }}"| base64 -d |docker login \
             --username oauth \
             --password-stdin ${{ env.YC_REGISTRY }}
 
@@ -72,11 +72,11 @@ jobs:
             ${{ env.SERVICE_NAME }} \
             ./deploy/helm/sms-service \
             --set image.repository=${{ env.YC_REGISTRY }}/${{ env.YC_REPOSITORY }}/sms-service \
-            --set image.tag=${{ github.sha }} \
+            --set image.tag=latest \
             --namespace ${{ env.KUBE_NAMESPACE }} \
             --atomic=false \
             --timeout 10m
-
+  
       - name: Check pod status
         run: |
           kubectl get pods -n ${{ env.KUBE_NAMESPACE }}
