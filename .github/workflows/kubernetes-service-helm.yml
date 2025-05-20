@@ -73,6 +73,7 @@ jobs:
             ./deploy/helm/sms-service \
             --set image.repository=${{ env.YC_REGISTRY }}/${{ env.YC_REPOSITORY }}/sms-service \
             --set image.tag=latest \
+            --set secret.KAFKA_ADDRESS="rc1a-d4hq0bvgrdlhdst2.mdb.yandexcloud.net:9091" \
             --namespace ${{ env.KUBE_NAMESPACE }} \
             --atomic=false \
             --timeout 10m
