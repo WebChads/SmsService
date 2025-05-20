@@ -59,6 +59,10 @@ jobs:
           echo "${{ secrets.KUBECONFIG }}" | base64 --decode > ~/.kube/config
           kubectl cluster-info
 
+      - name: Check cluster resources
+        run: |
+          kubectl get nodes
+
       - name: Install Helm
         uses: azure/setup-helm@v3
 
@@ -70,4 +74,11 @@ jobs:
             --set image.repository=${{ env.YC_REGISTRY }}/${{ env.YC_REPOSITORY }}/sms-service \
             --set image.tag=${{ github.sha }} \
             --namespace ${{ env.KUBE_NAMESPACE }} \
-            --atomic --wait
+            --atomic=false \
+            --timeout 10m
+
+      - name: Check pod status
+        run: |
+          kubectl get pods -n ${{ env.KUBE_NAMESPACE }}
+          kubectl describe pod -l app=${{ env.SERVICE_NAME }} -n ${{ env.KUBE_NAMESPACE }}
+          kubectl logs -l app=${{ env.SERVICE_NAME }} -n ${{ env.KUBE_NAMESPACE }}
