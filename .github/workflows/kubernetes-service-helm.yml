@@ -1,0 +1,73 @@
+name: Deploy sms-service to Yandex Kubernetes
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  # Настройки Yandex Container Registry
+  YC_REGISTRY: cr.yandex
+  YC_REPOSITORY: crpo7i7jtgfkus1pmda2
+  IMAGE_NAME: cr.yandex/crpo7i7jtgfkus1pmda2/sms-service:${{ github.sha }}
+
+  # Настройки Kubernetes
+  KUBE_NAMESPACE: default
+  SERVICE_NAME: sms-service
+
+jobs:
+  setup-cluster:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl access
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 --decode > ~/.kube/config
+          kubectl cluster-info
+
+  build-and-push:
+    needs: setup-cluster
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Yandex Container Registry
+        run: |
+          echo ${{ secrets.YC_OAUTH_TOKEN_ENCODED }}| base64 -d |docker login \
+            --username oauth \
+            --password-stdin ${{ env.YC_REGISTRY }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }} .
+          docker push ${{ env.IMAGE_NAME }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl access
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 --decode > ~/.kube/config
+          kubectl cluster-info
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+
+      - name: Deploy using Helm
+        run: |
+          helm upgrade --install \
+            ${{ env.SERVICE_NAME }} \
+            ./deploy/helm/sms-service \
+            --set image.repository=${{ env.YC_REGISTRY }}/${{ env.YC_REPOSITORY }}/sms-service \
+            --set image.tag=${{ github.sha }} \
+            --namespace ${{ env.KUBE_NAMESPACE }} \
+            --atomic --wait
