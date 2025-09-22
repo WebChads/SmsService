@@ -23,7 +23,7 @@ type smsCodeMessage struct {
 	SmsCode     string `json:"sms_code"`
 }
 
-var producerTopicName string = "smstoauth"
+var producerTopicName string = "sms-to-auth"
 var singletoneKafkaProducer *confluentKafkaProducer = &confluentKafkaProducer{}
 
 func (kafkaProducer *confluentKafkaProducer) SendSmsCode(phoneNumber string) error {

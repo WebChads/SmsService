@@ -25,7 +25,7 @@ type phoneNumberRequestDto struct {
 	PhoneNumber string `json:"phone_number"`
 }
 
-var consumerTopicName = "authtosms"
+var consumerTopicName = "auth-to-sms"
 var compiledPhoneNumberRegex *regexp.Regexp
 
 func (kafkaConsumer *confluentKafkaConsumer) Start() {

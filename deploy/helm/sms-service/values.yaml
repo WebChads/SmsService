@@ -1,7 +1,7 @@
 deployment:
-  replicas: 2
+  replicas: 1
 
-  imageRegistryUrl: cr.yandex/crpo7i7jtgfkus1pmda2
+  imageRegistryUrl: localhost:32000
   imageName: sms-service
   imageVersion: latest
 
@@ -13,8 +13,7 @@ deployment:
     memory: "512Mi"
 
 secret:
-  KAFKA_ADDRESS: "kafka.shared-services.svc.cluster.local:29092"
-  BROKERS: "kafka.shared-services.svc.cluster.local:29092"
+  KAFKA_ADDRESS: "kafka-service.shared-services.svc.cluster.local:9092"
 
 service:
   port: 15691
